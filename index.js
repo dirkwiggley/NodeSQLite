@@ -27,7 +27,7 @@ app.use("/test", testRoute)
 
 // Error handler
 app.use((err,req,res,next)=>{
-  console.log("In error handling middleware")
+  console.log(err.message)
   const errorStatus = err.status || 500
   const errorMessage = err.message || "Error in backend"
   return res.status(errorStatus).json({
