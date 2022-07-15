@@ -17,6 +17,23 @@ class DBAuth {
       return bcrypt.compareSync(value, hash)
     }
 
+    this.generateAccessToken = (user) => {
+      const isAdmin = user.roles.includes("ADMIN")
+      return jwt.sign(
+        { user_id: user.id, login: user.login, isAdmin: isAdmin },
+        process.env.TOKEN_KEY,
+        { expiresIn: "2h", }
+      )
+    }
+
+    this.generateRefreshToken = (user) => {
+      const isAdmin = user.roles.includes("ADMIN")
+      return jwt.sign(
+        { user_id: user.id, login: user.login, isAdmin: isAdmin },
+        process.env.REFRESH_KEY
+      )
+    }
+
     this.login = (res, login, password, next) => {
       try {
         if (!login || login === "" || !password || password === "") {
@@ -31,26 +48,63 @@ class DBAuth {
           return next(createError(400, "No user found"))
         }
         const result = this.compareHash(password, user.password)
-        console.log(result);
+        console.log(result)
         if (result) {
-          delete user.password;
+          delete user.password
 
           // Create token
-          const isAdmin = user.roles.includes("ADMIN")
-          const token = jwt.sign(
-            { user_id: user.id, login: user.login, isAdmin: isAdmin },
-            process.env.TOKEN_KEY,
-            { expiresIn: "2h", }
-          );
+          const accessToken = this.generateAccessToken(user)
+          const refreshToken = this.generateRefreshToken(user)
+          const insertRefresh = db.prepare("INSERT INTO refreshtokens (token) VALUES (?)")
+          insertRefresh.run(refreshToken)
 
-          res.cookie("access_token", token, { httpOnly: true, })
+          // res.cookie("access_token", accessToken, { httpOnly: true, })
+          res.cookie("access_token", accessToken)
             .status(200)
-            .json({...user});
+            .json({
+              ...user,
+              accessToken: accessToken,
+              refreshToken: refreshToken
+            })
         } else {
           return next(createError(400, "Unauthorized"))
         }
       } catch (err) {
-        console.error(err);
+        console.error(err)
+        return next(err)
+      }
+    }
+
+    this.refresh = (refreshToken, res) => {
+      try {
+        // send error if there is no token or it's invalid
+        if (!refreshToken) return res.status(401).json("You are not authenticated")
+
+        let db = this.dbUtils.getDb()
+        const getStmt = db.prepare("SELECT * FROM refreshtokens WHERE refreshtoken = ?")
+        const token = getStmt.getOne(refreshToken)
+
+        console.log(token)
+        if (token) {
+          jwt.verify(refreshToken, process.env.REFRESH_KEY, (err, user) => {
+            err && console.error(err)
+            const delStmt = db.prepare("DELETE FROM refreshTokens WHERE id === ?")
+            delStmt.run(token.id)
+
+            const newAccessToken = generateAccessToken(user)
+            const newRefeshToken = generateRefreshToken(user)
+            const insertRefresh = db.prepare("INSERT INTO refreshtokens (token) VALUES (?)")
+            insertRefresh.run(newRefeshToken)
+
+            res.status(200).json({
+              accessToken: newAccessToken,
+              refreshToken: newRefeshToken
+            })
+          })
+        }
+
+      } catch (err) {
+        console.error(err)
         return next(err)
       }
     }
@@ -82,6 +136,34 @@ class DBAuth {
         return next(err)
       }
       res.send()
+    }
+
+    this.logout = (refreshToken, req, res) => {
+      try {
+        let db = this.dbUtils.getDb()
+        const deleteStmt = db.prepare('DELETE FROM refreshTokens WHERE refreshToken = ?');
+        deleteStmt.run(refreshToken)
+        return res.send("You have logged out successfully")
+      } catch (err) {
+        console.error(err)
+        return next(createError(500, "Invalid token"))
+      }
+    }
+
+    this.initRefreshTokens = (req, res) => {
+      try {
+        let db = this.dbUtils.getDb()
+        const dropStmt = db.prepare('DROP TABLE refreshtokens');
+        dropStmt.run()
+
+        const create = db.prepare("CREATE TABLE IF NOT EXISTS refreshtokens (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT)")
+        create.run()
+
+        return res.send("refreshTokens table successfully initialized")
+      } catch (err) {
+        console.error(err)
+        return next(createError(500, "Invalid token"))
+      }
     }
   }
 }

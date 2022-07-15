@@ -1,6 +1,5 @@
 import DBUtils from "./DBUtils.js"
 import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
 
 import { createError } from "../utils/error.js"
 
@@ -45,16 +44,8 @@ class DBUsers {
       try {
         let db = this.dbUtils.getDb();
         if (userInfo.id === "add") {
-          // Create token
-          const token = jwt.sign(
-            { user_id: user._id, email },
-            process.env.TOKEN_KEY,
-            {
-              expiresIn: "2h",
-            }
-          );
           const tempPwd = this.hash("password");
-          const update = db.prepare('INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @token, @active, @resetpwd)');
+          const update = db.prepare('INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @active, @resetpwd)');
           update.run({
             id: null,
             login: userInfo.login,
@@ -62,26 +53,25 @@ class DBUsers {
             nickname: userInfo.nickname,
             email: userInfo.email,
             roles: userInfo.roles,
-            token: token,
             active: userInfo.active,
             resetpwd: 1
           });
         } else {
           const getStmt = db.prepare("SELECT * FROM users WHERE id = ?");
-          let user = getStmt.get(userInfo.id).password;
+
+          let user = getStmt.get(userInfo.id);
 
           const deleteStmt = db.prepare('DELETE FROM users WHERE id = ?');
           deleteStmt.run(userInfo.id)
 
-          const update = db.prepare(`INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @token, @active, @resetpwd)`);
+          const update = db.prepare(`INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @active, @resetpwd)`);
           update.run({
             id: userInfo.id,
             login: userInfo.login,
-            password: user.pwd,
+            password: user.password,
             nickname: userInfo.nickname,
             email: userInfo.email,
             roles: userInfo.roles,
-            token: user.token,
             active: userInfo.active,
             resetpwd: userInfo.resetpwd
           });
@@ -108,7 +98,7 @@ class DBUsers {
     this.getUserById = (id, res, next) => {
       try {
         let db = this.dbUtils.getDb();
-        const select = db.prepare("SELECT * FROM users where id = ?");
+        const select = db.prepare("SELECT * FROM users where id = ?")
         const data = select.get(id);
         if (!data || !data.password || !data.roles) {
           return next(createError(500, "No user found"))
@@ -127,18 +117,18 @@ class DBUsers {
     this.init = (res, next) => {
       try {
         let db = this.dbUtils.getDb()
-        const create = db.prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT, password TEXT, nickname TEXT, email TEXT, roles TEXT, token TEXT, active INTEGER, resetpwd INTEGER)")
+        const create = db.prepare("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT, password TEXT, nickname TEXT, email TEXT, roles TEXT, active INTEGER, resetpwd INTEGER)")
         create.run()
 
         const users = [
-          { login: "admin", password: "admin", nickname: "Admin", email: "na@donotreply.com", roles: '["ADMIN", "USER"]', token: null, active: 1, resetpwd: 0 },
-          { login: "user", password: "user", nickname: "User", email: "na2@donotreply.com", roles: '["USER"]', token: null, active: 1, resetpwd: 0 },
+          { login: "admin", password: "admin", nickname: "Admin", email: "na@donotreply.com", roles: '["ADMIN", "USER"]', active: 1, resetpwd: 0 },
+          { login: "user", password: "user", nickname: "User", email: "na2@donotreply.com", roles: '["USER"]', active: 1, resetpwd: 0 },
         ]
 
-        const insert = db.prepare("INSERT INTO users (login, password, nickname, email, roles, token, active, resetpwd) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        const insert = db.prepare("INSERT INTO users (login, password, nickname, email, roles, active, resetpwd) VALUES (?, ?, ?, ?, ?, ?, ?)");
         users.forEach(user => {
           const hash = this.hash(user.password);
-          insert.run(user.login, hash, user.nickname, user.email, user.roles, user.token, user.active, user.resetpwd)
+          insert.run(user.login, hash, user.nickname, user.email, user.roles, user.active, user.resetpwd)
         })
 
         res.send("Initialized user table")

@@ -4,7 +4,8 @@ import { createError } from "../utils/error.js"
 const config = process.env
 
 export const verifyToken = (req, res, next) => {
-  const token = req.cookies.access_token
+  const bearer = req.header("authorization");
+  const token = bearer.split(" ")[1];
 
   if (!token) {
     return next(createError(403, "A token is required for authentication"))
@@ -19,7 +20,8 @@ export const verifyToken = (req, res, next) => {
 };
 
 export const verifyUser = (req, res, next) => {
-  const token = req.cookies.access_token
+  const bearer = req.header("authorization");
+  const token = bearer.split(" ")[1];
 
   if (!token) {
     return next(createError(403, "A token is required for authentication"))
@@ -38,7 +40,8 @@ export const verifyUser = (req, res, next) => {
 }
 
 export const verifyAdmin = (req, res, next) => {
-  const token = req.cookies.access_token
+  const bearer = req.header("authorization");
+  const token = bearer.split(" ")[1];
 
   if (!token) {
     return next(createError(403, "A token is required for authentication"))
