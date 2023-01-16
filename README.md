@@ -12,5 +12,6 @@ USAGE:
 2. Get the node modules: "npm install"
 3. Build the app: "npm run build"
 4. Run or debug
+5. There are seed users Admin/admin and User/user in the default database to play with.
 
 Again, note that if you're going to actually use this for yourself you need to change the values in the .env file and start a new db. There are methods in the app that will create seed values to let you login, etc (read the code).
