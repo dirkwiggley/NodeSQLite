@@ -1,7 +1,10 @@
 import DBUtils from "./DBUtils.js";
 import bcrypt from "bcryptjs";
+import Express from "express";
 
 import { createError } from "../utils/error.js";
+import DBAuth from "./DBAuth.js";
+import { UserInterface } from "./types.js";
 
 class DBUsers {
   private dbUtils: DBUtils | null = null;
@@ -10,16 +13,16 @@ class DBUsers {
     this.dbUtils = new DBUtils();
   }
 
-  hash = (value) => {
+  hash = (value: string) => {
     var salt = bcrypt.genSaltSync(10);
     return bcrypt.hashSync(value, salt);
   };
 
-  compareHash = (value, hash) => {
+  compareHash = (value: string, hash: any) => {
     return bcrypt.compareSync(value, hash);
   };
 
-  getUsers = (res, next) => {
+  getUsers = (res: Express.Response, next: any) => {
     try {
       let db = this.dbUtils.getDb();
 
@@ -43,57 +46,127 @@ class DBUsers {
     }
   };
 
-  updateUsers = (userInfo, res, next) => {
+  isActive = (id: number) => {
     try {
       let db = this.dbUtils.getDb();
+
+      const select = db.prepare("SELECT active FROM users WHERE id = ?");
+      const active = select.get(id);
+
+      if (active === 1)
+        return true;
+      else 
+        return false;
+    } catch (err) {
+        // if error, don't crash but don't validate
+        console.error(err);
+        return false;
+    }
+  };
+
+  updateUserAPI = (userInfo: UserInterface, res: Express.Response, next: any) => {
+    try {
+      let db = this.dbUtils.getDb();
+      if (typeof userInfo.roles !== 'string') {
+        userInfo.roles = JSON.stringify(userInfo.roles);
+      }
+  
+      // New user has no id
       if (userInfo.id === null) {
-        const tempPwd = this.hash("password");
+        const tempPwd: string = this.hash("password");
         delete userInfo.id;
-        const update = db.prepare(
+        const insert = db.prepare(
           "INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @active, @resetpwd)"
         );
-        const roles = JSON.stringify(userInfo.roles);
-        update.run({
+
+        insert.run({
           id: null,
           login: userInfo.login,
           password: tempPwd,
           nickname: userInfo.nickname,
           email: userInfo.email,
-          roles: roles,
+          roles: userInfo.roles,
           active: userInfo.active.toString(),
           resetpwd: 1,
+          refreshtoken: userInfo.refreshtoken,
         });
       } else {
-        const getStmt = db.prepare("SELECT * FROM users WHERE id = ?");
-
-        let user = getStmt.get(userInfo.id);
-
-        const deleteStmt = db.prepare("DELETE FROM users WHERE id = ?");
-        deleteStmt.run(userInfo.id);
-
-        const update = db.prepare(
-          `INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @active, @resetpwd)`
-        );
-        const roles = JSON.stringify(userInfo.roles);
-        update.run({
-          id: userInfo.id,
-          login: userInfo.login,
-          password: user.password,
-          nickname: userInfo.nickname,
-          email: userInfo.email,
-          roles: roles,
-          active: userInfo.active,
-          resetpwd: userInfo.resetpwd,
-        });
+        this.updateUser(userInfo);
       }
     } catch (err) {
       console.error(err);
       return next(err);
     }
-    res.send();
+    res.status(204);
   };
 
-  deleteUser = (id, res, next) => {
+  // Do not update the password here, there should be a separate function for that
+  updateUser = (userInfo: UserInterface) => {
+    let db = this.dbUtils.getDb();
+    if (typeof userInfo.roles !== 'string') {
+      userInfo.roles = JSON.stringify(userInfo.roles);
+    }
+
+    if (userInfo.id === null) {
+      throw new Error("Invalid user");
+    } else {
+      const refreshToken = userInfo.refreshtoken ? userInfo.refreshtoken : "";
+      try {
+        const updateStmt = db.prepare(`UPDATE users SET login = ?, nickname = ?, email = ?, roles = ?, active = ?, resetpwd = ?, refreshtoken = ? WHERE id = ?`);
+        updateStmt.run(
+          userInfo.login,
+          userInfo.nickname,
+          userInfo.email,
+          userInfo.roles,
+          userInfo.active,
+          userInfo.resetpwd,
+          refreshToken,
+          userInfo.id,
+        );
+      } catch(err) {
+        console.error(err);
+        throw err;
+      }
+    }
+  };
+
+  logoutUser = (userId: number, res: Express.Response, next: any) => {
+    try {
+      let db = this.dbUtils.getDb();
+      if (userId === null) {
+        next(createError(500, "Invalid user, can not logout"));
+      } else {
+        const getStmt = db.prepare("SELECT * FROM users WHERE id = ?");
+        let user = getStmt.get(userId);
+        if (!user) {
+          next(createError(500, "Could not find user"));
+        }
+
+        try {
+          const updateStmt = db.prepare("UPDATE users SET login = ?, nickname = ?, email = ?, roles = ?, active = ?, resetpwd = ?, refreshtoken = ? WHERE id = ?");
+          updateStmt.run(
+            user.login,
+            user.nickname,
+            user.email,
+            user.roles,
+            user.active,
+            user.resetpwd,
+            "",
+            user.id,
+          );
+        } catch(err) {
+          console.error(err);
+          throw err;
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      return next(err);
+    }
+    res.status(204);
+  };
+
+  deleteUser = (id: number, res: Express.Response, next: any) => {
     try {
       let db = this.dbUtils.getDb();
       const deleteStatement = db.prepare(`DELETE FROM users WHERE id = ${id}`);
@@ -105,13 +178,13 @@ class DBUsers {
     }
   };
 
-  getUserById = (id, res, next) => {
+  getUserById = (id: number, res: Express.Response, next: any) => {
     try {
       let db = this.dbUtils.getDb();
       const select = db.prepare("SELECT * FROM users where id = ?");
       const data = select.get(id);
       if (!data || !data.password || !data.roles) {
-        return next(createError(500, "No user found"));
+        return next(createError(500, "Invalid user"));
       }
       if (data) {
         delete data.password;
@@ -124,7 +197,7 @@ class DBUsers {
     }
   };
 
-  init = (res, next) => {
+  init = (res: Express.Response, next: any) => {
     try {
       let db = this.dbUtils.getDb();
       try {
@@ -136,7 +209,7 @@ class DBUsers {
       }
 
       const create = db.prepare(
-        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT, password TEXT, nickname TEXT, email TEXT, roles TEXT, active INTEGER, resetpwd INTEGER)"
+        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT, password TEXT, nickname TEXT, email TEXT, roles TEXT, active INTEGER, resetpwd INTEGER, refreshtoken TEXT)"
       );
       create.run();
 
@@ -160,9 +233,10 @@ class DBUsers {
           resetpwd: 0,
         },
       ];
+      const dbAuth = new DBAuth();
 
       const insert = db.prepare(
-        "INSERT INTO users (login, password, nickname, email, roles, active, resetpwd) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO users (login, password, nickname, email, roles, active, resetpwd, refreshtoken) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       );
       users.forEach((user) => {
         const hash = this.hash(user.password);
@@ -174,7 +248,8 @@ class DBUsers {
           user.email,
           roles,
           user.active,
-          user.resetpwd
+          user.resetpwd,
+          null
         );
       });
 

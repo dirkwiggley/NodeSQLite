@@ -292,7 +292,6 @@ class DBUtils {
   dropTable = (
     res: Express.Response,
     table_name: string,
-    column_name: string
   ) => {
     let result = null;
 

@@ -10,11 +10,20 @@ import dbUtilsRoute from "./routes/dbutils.js"
 import testRoute from "./routes/test.js"
 
 const app = express()
-app.use(cors())
+app.use(function (req, res, next) {	
+  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+  next();
+});
+var corsOptions = {
+  credentials : true,
+  origin: 'https://clowncar.loca.lt',
+}
+app.use(cors(corsOptions))
 dotenv.config()
 
-console.log(process.env.SECRET_DATA)
-console.log(process.env.TOKEN_KEY)
+// DEBUGGING 
+console.debug(process.env.SECRET_DATA)
+console.debug(process.env.ACCESS_KEY)
 
 app.use(express.json())
 app.use(cookieParser())

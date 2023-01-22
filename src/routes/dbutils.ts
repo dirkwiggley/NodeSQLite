@@ -12,8 +12,8 @@ router.get('/', function(req, res, next) {
   res.send(availableMethods)
 });
 
-router.get('/tables', function(req, res, next) {
-// router.get('/tables', verifyAdmin, function(req, res, next) {  
+// router.get('/tables', function(req, res, next) {
+ router.get('/tables', verifyAdmin, function(req, res, next) {  
   dbUtils.getTables(res);
 });
 
@@ -23,7 +23,7 @@ router.get('/createtable/:tablename/:columnname', verifyAdmin, function (req: { 
 });
 
 router.delete('/droptable/:tablename', verifyAdmin, function (req, res, next) {
-  dbUtils.dropTable(res, req.params.tablename, next);
+  dbUtils.dropTable(res, req.params.tablename);
 });
 
 // router.get('/createcolumn/:tablename/:columnname', function(req, res, next) {
@@ -40,7 +40,7 @@ router.get('/insertrow/:table/', verifyAdmin, function(req, res, next) {
 });
 
 router.delete('/deleterow/:table/:id', verifyAdmin, function(req, res, next) {
-  dbUtils.deleteRow(res, req.params.table, req.params.id);
+  dbUtils.deleteRow(res, req.params.table, Number(req.params.id));
 });
 
 // router.get('/updateelement/:table/:id/:column/:data', function(req, res, next) {
