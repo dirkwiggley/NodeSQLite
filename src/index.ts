@@ -9,17 +9,22 @@ import roleRoute from "./routes/roles.js"
 import dbUtilsRoute from "./routes/dbutils.js"
 import testRoute from "./routes/test.js"
 
-const app = express()
-app.use(function (req, res, next) {	
-  res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
-  next();
-});
-var corsOptions = {
-  credentials : true,
-  origin: 'https://clowncar.loca.lt',
+const app = express();
+if (process.env.DEBUG !== 'true') {
+  app.use(function (req, res, next) {	
+    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type');
+    next();
+  });
 }
-app.use(cors(corsOptions))
 dotenv.config()
+var corsOptions = process.env.DEBUG === 'true' ? {
+  credentials : true,
+  origin: 'http://10.0.0.154:3000', 
+} : {
+  credentials : true,
+  origin: 'https://softwarewolf2.loca.lt',
+};
+app.use(cors(corsOptions))
 
 // DEBUGGING 
 console.debug(process.env.SECRET_DATA)

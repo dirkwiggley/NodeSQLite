@@ -5,7 +5,7 @@ import Express from "express";
 
 import { createError } from "../utils/error.js";
 import DBUsers from "./DBUsers.js";
-import { UserInterface, TokenInterface, objectIsDecodedToken } from "./types.js";
+import { UserInterface, objectIsDecodedToken } from "./types.js";
 
 interface DecodeReturnType extends JwtPayload {
   data: string | JwtPayload;

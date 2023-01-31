@@ -6,6 +6,9 @@ import { objectIsDecodedToken } from "../db/types.js";
 const config = process.env
 
 export const verifyUser = (req, res, next) => {
+  const debug: boolean = process.env.DEBUG ? true : false;
+  if (debug) return next();
+
   const accessToken = req.cookies.access_token;
 
   if (!accessToken || accessToken === undefined) {
@@ -25,6 +28,8 @@ export const verifyUser = (req, res, next) => {
 }
 
 export const verifyAdmin = (req, res, next) => {
+  const debug: boolean = process.env.DEBUG ? true : false;
+  if (debug) return next();
   const accessToken = req.cookies.access_token;
 
   if (!accessToken || accessToken === undefined) {
@@ -53,6 +58,8 @@ export const verifyAdmin = (req, res, next) => {
 // After the auth token has expired, this is called sending the refresh token in the 
 // headers to see if the user can create a new refresh token
 export const verifyRefreshToken = (req, res, next) => {
+  const debug: boolean = process.env.DEBUG ? true : false;
+  if (debug) return next();
   const bearer = req.header("authorization");
   const token = bearer?.split(" ")[1];
 

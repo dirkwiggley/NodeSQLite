@@ -1,5 +1,4 @@
 import DatabaseConstructor, { Database } from "better-sqlite3";
-import * as fs from "fs";
 import Express from "express";
 
 class DBUtils {
