@@ -12,7 +12,7 @@ export const verifyUser = (req, res, next) => {
   const accessToken = req.cookies.access_token;
 
   if (!accessToken || accessToken === undefined) {
-    return next(createError(403, "A token is required for authentication"))
+    return next(createError(401, "A token is required for authentication"))
   }
   try {
     const decoded = jwt.verify(accessToken, config.ACCESS_KEY);
@@ -28,12 +28,13 @@ export const verifyUser = (req, res, next) => {
 }
 
 export const verifyAdmin = (req, res, next) => {
+  // return next(createError(401, "A token is required for authentication"))
   const debug: boolean = process.env.DEBUG ? true : false;
   if (debug) return next();
   const accessToken = req.cookies.access_token;
 
   if (!accessToken || accessToken === undefined) {
-    return next(createError(403, "A token is required for authentication"))
+    return next(createError(401, "A token is required for authentication"))
   }
   try {
     const decodedToken = jwt.verify(accessToken, config.ACCESS_KEY);
@@ -64,7 +65,7 @@ export const verifyRefreshToken = (req, res, next) => {
   const token = bearer?.split(" ")[1];
 
   if (!token || token === undefined) {
-    return next(createError(403, "A token is required for authentication"))
+    return next(createError(401, "A token is required for authentication"))
   }
   try {
     const decoded = jwt.verify(token, config.ACCESS_KEY);

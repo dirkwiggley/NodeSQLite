@@ -115,8 +115,8 @@ class DBAuth {
           next(createError(500, "Could not generate access token"));
         }
 
-        // Store the refresh token on the client side as a cookie marked HTTPOnly
-        // the access token is returned as data and should only be stored
+        // Store the access token on the client side as a cookie marked HTTPOnly
+        // the refresh token is returned as data and should only be stored
         // on the client side in memory
         res
           .cookie("access_token", accessToken, {

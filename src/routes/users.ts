@@ -6,8 +6,8 @@ import { verifyAdmin, verifyUser } from "../middleware/auth.js";
 const router = express.Router();
 const users = new DBUsers();
 
-// router.get('/', verifyUser, function(req, res, next) {
-router.get('/', function(req, res, next) {  
+//router.get('/', function(req, res, next) {  
+router.get('/', verifyUser, function(req, res, next) {
   console.log(req.headers);
   users.getUsers(res, next);
 });
