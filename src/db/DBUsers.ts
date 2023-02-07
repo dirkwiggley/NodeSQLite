@@ -66,19 +66,23 @@ class DBUsers {
 
   updateUserAPI = (userInfo: UserInterface, res: Express.Response, next: any) => {
     try {
-      let db = this.dbUtils.getDb();
       if (typeof userInfo.roles !== 'string') {
         userInfo.roles = JSON.stringify(userInfo.roles);
       }
-  
+      // Convert these true/false values to 1/0
+      userInfo.active = userInfo.active ? 1 : 0;
+      userInfo.resetpwd = userInfo.resetpwd ? 1 : 0;
+
       // New user has no id
       if (userInfo.id === null) {
+        let db = this.dbUtils.getDb();
         const tempPwd: string = this.hash("password");
         delete userInfo.id;
         const insert = db.prepare(
-          "INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @active, @resetpwd)"
+          "INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @active, @resetpwd, @refreshtoken)"
         );
 
+        const active = userInfo.active ? 1 : 0;
         insert.run({
           id: null,
           login: userInfo.login,
@@ -86,9 +90,9 @@ class DBUsers {
           nickname: userInfo.nickname,
           email: userInfo.email,
           roles: userInfo.roles,
-          active: userInfo.active.toString(),
+          active: active,
           resetpwd: 1,
-          refreshtoken: userInfo.refreshtoken,
+          refreshtoken: null,
         });
       } else {
         this.updateUser(userInfo);
@@ -97,7 +101,7 @@ class DBUsers {
       console.error(err);
       return next(err);
     }
-    res.status(204);
+    res.status(204).send();
   };
 
   // Do not update the password here, there should be a separate function for that
@@ -110,7 +114,8 @@ class DBUsers {
     if (userInfo.id === null) {
       throw new Error("Invalid user");
     } else {
-      const refreshToken = userInfo.refreshtoken ? userInfo.refreshtoken : "";
+      const refreshToken = userInfo.refreshtoken ? userInfo.refreshtoken : null;
+      
       try {
         const updateStmt = db.prepare(`UPDATE users SET login = ?, nickname = ?, email = ?, roles = ?, active = ?, resetpwd = ?, refreshtoken = ? WHERE id = ?`);
         updateStmt.run(
@@ -163,7 +168,7 @@ class DBUsers {
       console.error(err);
       return next(err);
     }
-    res.status(204);
+    res.status(204).send();
   };
 
   deleteUser = (id: number, res: Express.Response, next: any) => {
