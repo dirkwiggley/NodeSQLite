@@ -1,15 +1,11 @@
 import DBUtils from "./DBUtils.js";
 import bcrypt from "bcryptjs";
-import jwt, { DecodeOptions, JwtPayload, Secret } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import Express from "express";
 
 import { createError } from "../utils/error.js";
 import DBUsers from "./DBUsers.js";
 import { UserInterface, objectIsDecodedToken } from "./types.js";
-
-interface DecodeReturnType extends JwtPayload {
-  data: string | JwtPayload;
-}
 
 class DBAuth {
   private dbUtils: DBUtils | null = null;
@@ -203,30 +199,24 @@ class DBAuth {
         return next(createError(500, "db is invalid"));
       }
       const getStmt = db.prepare("SELECT * FROM users WHERE id = ?");
-      let userInfo = getStmt.get(id);
-
-      const deleteStmt = db.prepare("DELETE FROM users WHERE id = ?");
-      deleteStmt.run(userInfo.id);
+      let userInfo: UserInterface = getStmt.get(id);
+      if (userInfo === null || userInfo === undefined) {
+        return next(createError(500, "No such user"));
+      }
 
       const hashPwd = this.hash(pwd);
-      const update = db.prepare(
-        `INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @active, @resetpwd)`
+      const updateStmt = db.prepare("UPDATE users SET password = ?, resetpwd = ? WHERE id = ?");
+
+      updateStmt.run(
+        hashPwd,
+        0,
+        userInfo.id,
       );
-      update.run({
-        id: userInfo.id,
-        login: userInfo.login,
-        password: hashPwd,
-        nickname: userInfo.nickname,
-        email: userInfo.email,
-        roles: userInfo.roles,
-        active: userInfo.active,
-        resetpwd: 0,
-      });
     } catch (err) {
       console.error(err);
       return next(err);
     }
-    res.send();
+    res.status(204).send();
   };
 
   logout = (
