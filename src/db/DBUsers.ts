@@ -79,7 +79,7 @@ class DBUsers {
         const tempPwd: string = this.hash("password");
         delete userInfo.id;
         const insert = db.prepare(
-          "INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @active, @resetpwd, @refreshtoken)"
+          "INSERT INTO users VALUES (@id, @login, @password, @nickname, @email, @roles, @locale, @active, @resetpwd, @refreshtoken)"
         );
 
         const active = userInfo.active ? 1 : 0;
@@ -90,6 +90,7 @@ class DBUsers {
           nickname: userInfo.nickname,
           email: userInfo.email,
           roles: userInfo.roles,
+          locale: userInfo.locale,
           active: active,
           resetpwd: 1,
           refreshtoken: null,
@@ -117,12 +118,13 @@ class DBUsers {
       const refreshToken = userInfo.refreshtoken ? userInfo.refreshtoken : null;
       
       try {
-        const updateStmt = db.prepare(`UPDATE users SET login = ?, nickname = ?, email = ?, roles = ?, active = ?, resetpwd = ?, refreshtoken = ? WHERE id = ?`);
+        const updateStmt = db.prepare(`UPDATE users SET login = ?, nickname = ?, email = ?, roles = ?, locale = ?, active = ?, resetpwd = ?, refreshtoken = ? WHERE id = ?`);
         updateStmt.run(
           userInfo.login,
           userInfo.nickname,
           userInfo.email,
           userInfo.roles,
+          userInfo.locale,
           userInfo.active,
           userInfo.resetpwd,
           refreshToken,
@@ -148,12 +150,13 @@ class DBUsers {
         }
 
         try {
-          const updateStmt = db.prepare("UPDATE users SET login = ?, nickname = ?, email = ?, roles = ?, active = ?, resetpwd = ?, refreshtoken = ? WHERE id = ?");
+          const updateStmt = db.prepare("UPDATE users SET login = ?, nickname = ?, email = ?, roles = ?, locale= ?, active = ?, resetpwd = ?, refreshtoken = ? WHERE id = ?");
           updateStmt.run(
             user.login,
             user.nickname,
             user.email,
             user.roles,
+            user.locale,
             user.active,
             user.resetpwd,
             "",
@@ -214,7 +217,7 @@ class DBUsers {
       }
 
       const create = db.prepare(
-        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT, password TEXT, nickname TEXT, email TEXT, roles TEXT, active INTEGER, resetpwd INTEGER, refreshtoken TEXT)"
+        "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT, password TEXT, nickname TEXT, email TEXT, roles TEXT, locale TEXT ,active INTEGER, resetpwd INTEGER, refreshtoken TEXT)"
       );
       create.run();
 
@@ -225,6 +228,7 @@ class DBUsers {
           nickname: "Admin",
           email: "na@donotreply.com",
           roles: ["ADMIN", "USER"],
+          locale: "enUS",
           active: 1,
           resetpwd: 0,
         },
@@ -234,6 +238,7 @@ class DBUsers {
           nickname: "User",
           email: "na2@donotreply.com",
           roles: ["USER"],
+          locale: "enUS",
           active: 1,
           resetpwd: 0,
         },
@@ -241,7 +246,7 @@ class DBUsers {
       const dbAuth = new DBAuth();
 
       const insert = db.prepare(
-        "INSERT INTO users (login, password, nickname, email, roles, active, resetpwd, refreshtoken) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO users (login, password, nickname, email, roles, locale, active, resetpwd, refreshtoken) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
       );
       users.forEach((user) => {
         const hash = this.hash(user.password);
@@ -252,6 +257,7 @@ class DBUsers {
           user.nickname,
           user.email,
           roles,
+          user.locale,
           user.active,
           user.resetpwd,
           null
