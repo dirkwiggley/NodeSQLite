@@ -103,7 +103,6 @@ class DBAuth {
           user.refreshtoken = refreshToken;
           const dbUsers = new DBUsers();
           dbUsers.updateUser(user);
-
         }
         const accessToken = this.generateAccessToken(user);
         // This token lives in a cookie
@@ -134,7 +133,7 @@ class DBAuth {
     }
   };
 
-  // When the refresh token has expired, use the access token to create a
+  // When the access token has expired, use the refresh token to create a
   // new one
   refresh = (accessToken: string, res: Express.Response, next: any) => {
     try {

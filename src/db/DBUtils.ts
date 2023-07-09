@@ -24,7 +24,7 @@ class DBUtils {
     return this.db;
   };
 
-  getTables = (res: Express.Response) => {
+  getTablesReusable = () => {
     var result: string[] = [];
     try {
       let db = this.getDb();
@@ -41,6 +41,11 @@ class DBUtils {
       result = []; // Don't blow up, just log
       console.error(err);
     }
+    return result;
+  }
+
+  getTables = (res: Express.Response) => {
+    var result = this.getTablesReusable();
     res.send(result);
   };
 
@@ -90,6 +95,11 @@ class DBUtils {
     try {
       let db = this.getDb();
       const tableName = (table_name + "").toLowerCase();
+      // Let's prevent SQL injection
+      const tables = this.getTablesReusable();
+      if (!tables.includes(tableName)) {
+        throw new Error("Table does not exist");
+      }
       const dataString = "SELECT * FROM " + tableName;
       const colNames = this.getCols(tableName);
       const dataQuery = db.prepare(dataString);
@@ -119,6 +129,12 @@ class DBUtils {
     try {
       let db = this.getDb();
       const tableName = (table_name + "").toLowerCase();
+      // Let's prevent SQL injection
+      const tables = this.getTablesReusable();
+      if (!tables.includes(tableName)) {
+        throw new Error("Table does not exist");
+      }
+      
       const dataString = "SELECT * FROM " + tableName;
       const dataQuery = db.prepare(dataString);
       result = dataQuery.all();
@@ -422,6 +438,12 @@ class DBUtils {
       const newColumnName = new_column_name.toLowerCase();
       let db = this.getDb();
 
+      // Let's prevent SQL injection
+      const tables = this.getTablesReusable();
+      if (!tables.includes(tableName)) {
+        throw new Error("Table does not exist");
+      }
+
       // Can't change id
       if (oldColumnName === "id") {
         throw new Error("Can't rename id column");
@@ -484,12 +506,21 @@ class DBUtils {
     column_name: string,
     val: string
   ) => {
-    let result = null;
+    let result = null
     try {
-      const db = this.getDb();
-      const tableName = table_name.toLowerCase();
-      const columnName = column_name.toLowerCase();
-      const value = val.toLowerCase();
+      const db = this.getDb()
+      const tableName = table_name.toLowerCase()
+      const columnName = column_name.toLowerCase()
+      const value = val.toLowerCase()
+      // Let's prevent SQL injection
+      const tables = this.getTablesReusable()
+      if (!tables.includes(tableName)) {
+        throw new Error("Table does not exist")
+      }
+      const columns = this.getCols(tableName)
+      if (columns instanceof Error || !columns.includes(columnName)) {
+        throw new Error("Column does not exist")
+      }
       const select =
         "SELECT * FROM " + tableName + " WHERE " + columnName + " = ?";
       const selectQuery = db.prepare(select);
@@ -500,42 +531,6 @@ class DBUtils {
     }
     res.send(result);
   };
-
-  /*
-      [
-        {
-          "table":"roles",
-          "columnNames":["id","name"],
-          "data":[
-            {"id":1,"name":"ADMIN"},
-            {"id":2,"name":"USER"}
-          ]
-        },
-        {
-          "table":"test",
-          "columnNames":["id","name","abbr","desc","testdata"],
-          "data":[
-            {"id":1,"name":"Agility","abbr":"AGI","desc":"agility","testdata":"12"},
-            {"id":2,"name":"Smarts","abbr":"SMA","desc":"smarts","testdata":"true"},
-            {"id":3,"name":"Spirit","abbr":"SPI","desc":"spirit","testdata":"me"},
-            {"id":4,"name":"Strength","abbr":"STR","desc":"agility","testdata":null},
-            {"id":5,"name":"Vigor","abbr":"VIG","desc":"vigor","testdata":null},
-            {"id":6,"name":"Fighting","abbr":"FIGHTING","desc":"fighting","testdata":null},
-            {"id":7,"name":"Shooting","abbr":"SHOOTING","desc":"shooting","testdata":null},
-            {"id":8,"name":"Athletics","abbr":"ATHLETICS","desc":"athletics","testdata":null},
-            {"id":12,"name":"Test","abbr":"TEST","desc":"test","testdata":null}
-          ]
-        },
-        {
-          "table":"users",
-          "columnNames":["id","login","password","nickname","email","roles","active","resetpwd"],
-          "data":[
-            {"id":1,"login":"admin","password":"$2a$10$SOPekMskdsfGKZxhLV36zOwnPGaFai3.1mpT/aYULOqI0Y8hxP/Zq","nickname":"Admin","email":"na@donotreply.com","roles":"[\"ADMIN\",\"USER\"]","active":1,"resetpwd":0},
-            {"id":2,"login":"user","password":"$2a$10$EB.8rrxcbqPlTUNu3.NIyOCkDgn32./6ZD2ChE5s16E.QxFpguksS","nickname":"User","email":"na2@donotreply.com","roles":"[\"USER\"]","active":1,"resetpwd":0},
-            {"id":4,"login":"demo","password":"$2a$10$ktNWMsH9F6HX6WtQtIESGuLzqMSr7a.g8JxZufx8CMdifglWdBTYe","nickname":"Demo","email":"d@emo.com","roles":"[\"USER\",\"ADMIN\"]","active":"true","resetpwd":0}
-          ]}
-      ]
-    */
 
   backupDB = (res: Express.Response) => {
     let db = this.getDb();
@@ -551,35 +546,6 @@ class DBUtils {
 
   exportDB = (res: Express.Response) => {
     this.backupDB(res);
-    // const create = [];
-    // const tableNames = [];
-    // try {
-    //   let db = this.getDb();
-    //   const select = db.prepare(`SELECT name, sql FROM sqlite_master WHERE type='table'`);
-    //   const data = select.all();
-    //   data.forEach(element => {
-    //     // if (element.name !== "sqlite_sequence" && element.name !== "refreshtokens") {
-    //       create.push(element.sql);
-    //       tableNames.push(element.name);
-    //     // }
-    //   });
-    // } catch (err) {
-    //   console.error(err);
-    //   result = err;
-    // }
-
-    // const tablesData = [];
-    // tableNames?.forEach(tableName => {
-    //   tablesData.push(this.getTableData(tableName));
-    // });
-
-    // const output = JSON.stringify(tablesData);
-    // fs.writeFile("db_export.txt", output, (err) => {
-    //     if(err) {
-    //         return console.log(err);
-    //     }
-    //     console.log("The file was saved!");
-    // });
 
     res.send("Success");
   };

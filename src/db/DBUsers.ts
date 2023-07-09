@@ -189,7 +189,7 @@ class DBUsers {
   getUserById = (id: number, res: Express.Response, next: any) => {
     try {
       let db = this.dbUtils.getDb();
-      const select = db.prepare("SELECT * FROM users where id = ?");
+      const select = db.prepare("SELECT * FROM users WHERE id = ?");
       const data = select.get(id);
       if (!data || !data.password || !data.roles) {
         return next(createError(500, "Invalid user"));
