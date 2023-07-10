@@ -49,11 +49,20 @@ class DBUtils {
     res.send(result);
   };
 
-  getCols = (table_name: string): string[] | Error => {
+  tableExists = (tableName: string): boolean => {
+    const tables = this.getTablesReusable();
+    return tables.includes(tableName);
+  }
+
+  getCols = (table_name: string): string[] => {
     let result: string[] = [];
     try {
       let db = this.getDb();
       const tableName = table_name.toLowerCase();
+      if (!this.tableExists(tableName)) {
+        throw Error("Table does not exist");
+      }
+
       const select = db.prepare(
         "SELECT sql from sqlite_schema WHERE tbl_name = '" + tableName + "'"
       );
@@ -78,7 +87,7 @@ class DBUtils {
       }
     } catch (err) {
       console.error(err);
-      result = []; // Don't blow up, just log
+      throw err;
     }
 
     return result;
@@ -89,6 +98,16 @@ class DBUtils {
     res.send(columns);
   };
 
+  columnExists = (tableName: string, columnName: string): boolean => {
+    let columns: Array<string> = [];
+    try {
+      columns = this.getCols(tableName);
+    } catch (err) {
+      return false;
+    }
+    return columns.includes(columnName);
+  }
+
   // Reusable method
   getTableData = (table_name: string) => {
     let result = null;
@@ -96,8 +115,7 @@ class DBUtils {
       let db = this.getDb();
       const tableName = (table_name + "").toLowerCase();
       // Let's prevent SQL injection
-      const tables = this.getTablesReusable();
-      if (!tables.includes(tableName)) {
+      if (!this.tableExists(tableName)) {
         throw new Error("Table does not exist");
       }
       const dataString = "SELECT * FROM " + tableName;
@@ -113,7 +131,6 @@ class DBUtils {
       };
     } catch (err) {
       console.error(err);
-      result = err;
     }
     return result;
   };
@@ -130,8 +147,7 @@ class DBUtils {
       let db = this.getDb();
       const tableName = (table_name + "").toLowerCase();
       // Let's prevent SQL injection
-      const tables = this.getTablesReusable();
-      if (!tables.includes(tableName)) {
+      if (!this.tableExists(tableName)) {
         throw new Error("Table does not exist");
       }
       
@@ -150,10 +166,10 @@ class DBUtils {
     let result = null;
     try {
       const tableName = table_name.toLowerCase();
-      const colArray: string[] | Error = this.getCols(tableName);
-      if (colArray instanceof Error) {
-        return;
-      } // Don't blow up. Error was logged above
+      if (!this.tableExists(tableName)) {
+        throw new Error("Table does not exist");
+      }
+      const colArray: string[] = this.getCols(tableName);
       let insertString = "INSERT INTO " + tableName + " (";
       for (let i = 1; i < colArray.length; i++) {
         if (i > 1) {
@@ -190,10 +206,7 @@ class DBUtils {
     let result = null;
     const rowArray = [];
     try {
-      const columns: string[] | Error = this.getCols(table_name);
-      if (columns instanceof Error) {
-        return;
-      } // Don't blow up, error was logged above
+      const columns: string[] = this.getCols(table_name);
       const columnCount = columns.length;
       // Remove id since it's autoincrement
       for (let x = 0; x < columnCount - 1; x++) {
@@ -211,6 +224,9 @@ class DBUtils {
     let result = null;
     try {
       const tableName = table_name.toLowerCase();
+      if (!this.tableExists(tableName)) {
+        throw new Error("Table does not exist");
+      }
       const deleteString = "DELETE FROM " + tableName + " WHERE id = ?";
       let db = this.getDb();
       const deleteQuery = db.prepare(deleteString);
@@ -233,7 +249,11 @@ class DBUtils {
     data: any
   ) => {
     let result = null;
+    const tableName = table_name.toLowerCase();
     const columnName = column_name.toLowerCase();
+    if (!this.columnExists(table_name, column_name)) {
+      throw new Error("Column does not exist");
+    }
     if (columnName === "id") {
       const errMsg = "Error: can not update id";
       console.error(errMsg);
@@ -241,7 +261,6 @@ class DBUtils {
       return;
     }
     try {
-      const tableName = table_name.toLowerCase();
       let id = null;
       // In case it isn't a string
       try {
@@ -275,13 +294,20 @@ class DBUtils {
       let db = this.getDb();
       const tableName = table_name.toLowerCase();
       const columnName = column_name.toLowerCase();
+      if (this.isNotAllowedName(tableName)) {
+        throw new Error("Invalid table name");
+      }
+      if (this.isNotAllowedName(columnName)) {
+        throw new Error("Invalid column name");
+      }
       const data = [tableName];
       const columnString =
         "SELECT COUNT(*) AS total FROM sqlite_master WHERE type='table' AND name = ?";
       const columnQuery = db.prepare(columnString);
       const count = columnQuery.get(data).total;
 
-      // Create a table with just one column
+      // Create a table with just one column and allow only one at a time to 
+      // prevent pollution of the db
       if (count === 0) {
         const createString =
           "CREATE TABLE " +
@@ -313,6 +339,9 @@ class DBUtils {
     try {
       let db = this.getDb();
       const tableName = table_name.toLowerCase();
+      if (!this.tableExists(tableName)) {
+        throw new Error("Table does not exist");
+      }
       const dropString = "DROP TABLE " + tableName;
       const dropQuery = db.prepare(dropString);
       dropQuery.run();
@@ -338,6 +367,12 @@ class DBUtils {
       let db = this.getDb();
       const tableName = table_name.toLowerCase();
       const columnName = colName.toLowerCase();
+      if (this.tableExists(tableName)) {
+        throw new Error("Table does not exist");
+      }
+      if (this.isNotAllowedName(columnName)) {
+        throw new Error("Invalid column name");
+      }
       const dataType = colDataType.toUpperCase();
       const dataTypes = ["TEXT", "INTEGER", "REAL", "NUMERIC", "BLOB"];
       if (!dataTypes.includes(dataType)) {
@@ -356,7 +391,6 @@ class DBUtils {
       result = this.getTableData(tableName);
     } catch (err) {
       console.error(err);
-      result = err;
     }
 
     res.send(result);
@@ -371,6 +405,12 @@ class DBUtils {
     try {
       const tableName = table_name.toLowerCase();
       const columnName = column_name.toLowerCase();
+      // Let's prevent SQL injection
+      if (!this.columnExists(table_name, columnName)) {
+        res.send("Invalid name");
+        return;
+      }
+
       let db = this.getDb();
       const dropString =
         "ALTER TABLE " + table_name + " DROP COLUMN " + columnName;
@@ -390,9 +430,19 @@ class DBUtils {
   renTable = (old_table_name: string, new_table_name: string) => {
     let result = null;
     try {
+      let db = this.getDb();
+
       const oldTableName = old_table_name.toLowerCase();
       const newTableName = new_table_name.toLowerCase();
-      let db = this.getDb();
+
+      // Let's prevent SQL injection
+      if (this.isNotAllowedName(new_table_name)) {
+        throw new Error("Can't invalid column name");
+      }
+      if (!this.tableExists(old_table_name)) {
+        throw new Error("Table does not exist");
+      }
+
       const renameString =
         "ALTER TABLE " + oldTableName + " RENAME TO " + newTableName;
       const renameQuery = db.prepare(renameString);
@@ -416,6 +466,11 @@ class DBUtils {
     res.send(result);
   };
 
+  // Must start with alpha and allow only alpha and underscore
+  isNotAllowedName = (str) => {
+    return str.search(/^[A-Za-z0-9_]*$/) === -1;
+  }
+
   /**
    * The version of SQLite3 I'm using doesn't do rename column
    * so we have to do it this way
@@ -431,16 +486,18 @@ class DBUtils {
     new_column_name: string
   ) => {
     let result = null;
+    let db = this.getDb();
+
     try {
       const tableName = table_name.toLowerCase();
       const tempTableName = "tmp_" + tableName;
       const oldColumnName = old_column_name.toLowerCase();
       const newColumnName = new_column_name.toLowerCase();
-      let db = this.getDb();
-
       // Let's prevent SQL injection
-      const tables = this.getTablesReusable();
-      if (!tables.includes(tableName)) {
+      if (this.isNotAllowedName(newColumnName)) {
+        throw new Error("Can't invalid column name");
+      }
+      if (!this.tableExists(tableName)) {
         throw new Error("Table does not exist");
       }
 
@@ -513,8 +570,7 @@ class DBUtils {
       const columnName = column_name.toLowerCase()
       const value = val.toLowerCase()
       // Let's prevent SQL injection
-      const tables = this.getTablesReusable()
-      if (!tables.includes(tableName)) {
+      if (!this.tableExists(tableName)) {
         throw new Error("Table does not exist")
       }
       const columns = this.getCols(tableName)
