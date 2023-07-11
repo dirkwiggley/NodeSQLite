@@ -367,7 +367,7 @@ class DBUtils {
       let db = this.getDb();
       const tableName = table_name.toLowerCase();
       const columnName = colName.toLowerCase();
-      if (this.tableExists(tableName)) {
+      if (!this.tableExists(tableName)) {
         throw new Error("Table does not exist");
       }
       if (this.isNotAllowedName(columnName)) {
