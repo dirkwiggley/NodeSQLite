@@ -54,7 +54,7 @@ router.get('/:table/columns', verifyAdmin, function(req, res, next) {
 
 // router.get('/tabledata/:table', function(req, res, next) {
 router.get('/tabledata/:table', verifyAdmin, function(req, res, next) {
-  dbUtils.getTable(res, req.params.table);
+  dbUtils.getTableData(res, req.params.table);
 });
 
 router.get('/tablerows/:table', verifyAdmin, function(req, res, next) {
