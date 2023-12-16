@@ -1,6 +1,17 @@
 import DatabaseConstructor, { Database } from "better-sqlite3";
 import Express from "express";
 
+type TableType = {
+  name: string;
+}
+type SQLType = {
+  sql: string;
+}
+
+type TotalType = {
+  total: number;
+}
+
 class DBUtils {
   private static _instance: DBUtils;
   public db: Database | null = null;
@@ -32,7 +43,7 @@ class DBUtils {
         "SELECT name FROM sqlite_master WHERE type='table'"
       );
       const data = select.all();
-      data.forEach((element) => {
+      data.forEach((element: TableType) => {
         if (element.name !== "sqlite_sequence") {
           result.push(element.name);
         }
@@ -66,9 +77,9 @@ class DBUtils {
       const select = db.prepare(
         "SELECT sql from sqlite_schema WHERE tbl_name = '" + tableName + "'"
       );
-      const data = select.all();
+      const data: Array<SQLType> | unknown[] = select.all();
       if (data) {
-        let a = data[0].sql;
+        let a = (data as Array<SQLType>)[0].sql;
         let b = a.substring(a.indexOf("(") + 1, a.length - 1);
         let c = b.split(",");
         let d: string[] = [];
@@ -303,7 +314,7 @@ class DBUtils {
       const columnString =
         "SELECT COUNT(*) AS total FROM sqlite_master WHERE type='table' AND name = ?";
       const columnQuery = db.prepare(columnString);
-      const count = columnQuery.get(data).total;
+      const count = (columnQuery.get(data) as TotalType)?.total;
 
       // Create a table with just one column and allow only one at a time to 
       // prevent pollution of the db

@@ -3,11 +3,11 @@ import * as dotenv from "dotenv"
 import cookieParser from "cookie-parser"
 import cors from "cors"
 
-import authRoute from "./routes/auth.js"
 import userRoute from "./routes/users.js"
-import roleRoute from "./routes/roles.js"
+import videoRoute from "./routes/videos.js"
+import videoListRoute from './routes/videoList.js'
+import videoInListRoute from './routes/videoInList.js';
 import dbUtilsRoute from "./routes/dbutils.js"
-import testRoute from "./routes/test.js"
 
 const app = express();
 if (process.env.DEBUG !== 'true') {
@@ -33,12 +33,12 @@ console.debug(process.env.ACCESS_KEY)
 app.use(express.json())
 app.use(cookieParser())
 
-app.use("/auth", authRoute)
 app.use("/users", userRoute)
-app.use("/roles", roleRoute)
+app.use("/videos", videoRoute)
+app.use("/video_list", videoListRoute)
+app.use("/video_in_list", videoInListRoute)
 app.use("/dbutils", dbUtilsRoute)
-app.use("/test", testRoute)
-app.use("/", testRoute)
+app.use("/", userRoute)
 
 // Error handler
 app.use((err,req,res,next)=>{
